@@ -20,28 +20,28 @@ volatile unsigned int ticks = 0;
 #define ACSR_FAILING (_BV(ACIS1) | _BV(ACIS0))
 
 uint16_t phases[] = {
-UP | VN | ACW | ACFAILING,
-UP | WN | ACV | ACRISING,
-VP | WN | ACU | ACFAILING,
-VP | UN | ACW | ACRISING,
-WP | UN | ACV | ACFAILING,
-WP | VN | ACU | ACRISING,
+	UP | VN | ACW | ACFAILING,
+	UP | WN | ACV | ACRISING,
+	VP | WN | ACU | ACFAILING,
+	VP | UN | ACW | ACRISING,
+	WP | UN | ACV | ACFAILING,
+	WP | VN | ACU | ACRISING,
 };
 uint8_t phasesADMUX[] = {
-ADMUX_W,
-ADMUX_V,
-ADMUX_U,
-ADMUX_W,
-ADMUX_V,
-ADMUX_U,
+	ADMUX_W,
+	ADMUX_V,
+	ADMUX_U,
+	ADMUX_W,
+	ADMUX_V,
+	ADMUX_U,
 };
 uint8_t phasesACSR[] = {
-ACSR_FAILING,
-ACSR_RISING,
-ACSR_FAILING,
-ACSR_RISING,
-ACSR_FAILING,
-ACSR_RISING,
+	ACSR_FAILING,
+	ACSR_RISING,
+	ACSR_FAILING,
+	ACSR_RISING,
+	ACSR_FAILING,
+	ACSR_RISING,
 };
 
 // uint8_t phasesorig[] = {
@@ -174,6 +174,7 @@ SIGNAL(TIMER0_OVF_vect)
 SIGNAL(ANA_COMP_vect)
 {
 	disableAC ();
+	IO_TOGGLE(LED);
 	if (state == STATE_NORMAL || state == STATE_STABILIZING)
 	{
 		// lastPhaseTimeValid = lastPhaseTime;
@@ -241,8 +242,6 @@ void setupStartingState ()
 	state = STATE_STARTING;
 }
 
-
-
 int main()
 {
 	IO_PUSH_PULL(LED);
@@ -274,9 +273,9 @@ int main()
 	TCCR2 = _BV(WGM21) | _BV(WGM20) | _BV(CS20);
 	TIMSK |= _BV(TOIE2);
 
-	OCR2 = 90;
-	OCR1B = 90;
-	OCR1A = 90;
+	OCR2 = 20;
+	OCR1B = 20;
+	OCR1A = 20;
 
 	ADCSRA = 0;
 	SFIOR = _BV(ACME);
@@ -332,6 +331,7 @@ int main()
 			{
 				setupStoppedState();
 			}
+			break;
 		}
 		commProcess();
 	}
