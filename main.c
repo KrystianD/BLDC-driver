@@ -72,6 +72,7 @@ uint8_t phasesACSR[] = {
 #define STATE_NORMAL   3
 #define STATE_STABILIZING   4
 
+volatile uint8_t id = 0;
 
 volatile uint8_t state;
 
@@ -264,8 +265,6 @@ int main()
 	IO_INPUT(SCL);
 	IO_INPUT(SDA);
 
-	IO_PUSH_PULL(UART_TX);
-
 	DISABLE_ALL();
 
 	TCCR1A = _BV(WGM10);
@@ -330,9 +329,11 @@ int main()
 			if (ticks - lct > 10)
 			{
 				setupStoppedState();
+				setupStartingState();
 			}
 			break;
 		}
 		commProcess();
 	}
 }
+

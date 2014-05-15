@@ -19,6 +19,10 @@ extern volatile unsigned int ticks;
 #define PHASE_V_IN PORTC,3
 #define PHASE_W_IN PORTC,2
 
+#define ID0 PORTD,0
+#define ID1 PORTD,1
+#define ID2 PORTD,2
+
 // funcs
 #define BTN_PRESSED() (IO_IS_LOW(P_BTN))
 #define BTN2_PRESSED() (IO_IS_LOW(P_BTN2))

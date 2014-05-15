@@ -8,10 +8,16 @@
 
 #define TWOPT (_BV(TWEN) | _BV(TWIE))
 
+volatile uint8_t deviceID;
+
+void comm_findID();
+
 void commInit()
 {
+	comm_findID();
+
 #define TWI_ADDRESS 0x20
-	TWAR = (TWI_ADDRESS << 1);
+	TWAR = ((TWI_ADDRESS + deviceID) << 1) | TWGCE;
 	TWCR = _BV(TWEA) | _BV(TWEN) | _BV(TWIE);
 }
 
@@ -36,20 +42,17 @@ static uint8_t outbuf[3 + 2];
 static uint8_t state = STATE_IDLE;
 static uint8_t bufIdx = 0;
 
-void processInput()
+void comm_processInput()
 {
 	uint16_t crc;
 	if (state == STATE_RECV && bufIdx == sizeof(buf))
 	{
 		int i;
-		IO_HIGH(UART_TX);
-		crc = crcUpdate(0, buf[0]);
+		crc = crcUpdate(  0, buf[0]);
 		crc = crcUpdate(crc, buf[1]);
 		crc = crcUpdate(crc, buf[2]);
 		crc = crcUpdate(crc, buf[3]);
 		crc = crcUpdate(crc, buf[4]);
-		// crc = _crc16_update(crc, buf[i]);
-		IO_LOW(UART_TX);
 
 		uint16_t origCrc = *(uint16_t*)(buf + sizeof(buf) - 2);
 		if (crc == origCrc)
@@ -73,7 +76,7 @@ void processInput()
 				outbuf[1] = (validCPS >> 0) & 0xff;
 				outbuf[2] = (validCPS >> 8) & 0xff;
 				sei();
-				crc = crcUpdate(0, outbuf[0]);
+				crc = crcUpdate(  0, outbuf[0]);
 				crc = crcUpdate(crc, outbuf[1]);
 				crc = crcUpdate(crc, outbuf[2]);
 				*(uint16_t*)(outbuf + sizeof(outbuf) - 2) = crc;
@@ -140,7 +143,7 @@ ISR(TWI_vect)
 	case TW_SR_STOP:
 		TWCR = TWOPT | _BV(TWINT) | _BV(TWEA);
 
-		processInput();
+		comm_processInput();
 		break;
 
 		// Slave TRANSMIT
@@ -196,4 +199,36 @@ ISR(TWI_vect)
 		// printf("oth 0x%02x\r\n", TWSR);
 		break;
 	}
+}
+
+void comm_findID()
+{
+	IO_INPUT_PP(ID0);
+	IO_PUSH_PULL(ID1);
+	IO_LOW(ID1);
+	IO_INPUT_PP(ID2);
+
+	if (IO_IS_HIGH(ID0) && IO_IS_HIGH(ID2))
+	{
+		deviceID = 0;
+	}
+	else if (IO_IS_HIGH(ID0))
+	{
+		deviceID = 1;
+	}
+	else if (IO_IS_HIGH(ID2))
+	{
+		deviceID = 2;
+	}
+	else
+	{
+		deviceID = 3;
+	}
+
+	IO_INPUT(ID0);
+	IO_INPUT(ID1);
+	IO_INPUT(ID2);
+	IO_LOW(ID0);
+	IO_LOW(ID1);
+	IO_LOW(ID2);
 }
