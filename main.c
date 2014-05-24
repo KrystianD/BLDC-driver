@@ -75,6 +75,7 @@ SIGNAL(TIMER0_OVF_vect)
 	{
 		TCNT0 = speedTime;
 		phase++;
+		setPhase();
 		if (phase == 6)
 		{
 			phase = 0;
@@ -88,7 +89,6 @@ SIGNAL(TIMER0_OVF_vect)
 				return;
 			}
 		}
-		setPhase();
 	}
 	else
 	{
@@ -100,23 +100,16 @@ SIGNAL(TIMER0_OVF_vect)
 
 SIGNAL(ANA_COMP_vect)
 {
-	disableAC();
-	IO_TOGGLE(LED);
 	if (state == STATE_NORMAL || state == STATE_STABILIZING)
 	{
-		// lastPhaseTimeValid = lastPhaseTime;
-		// lastPhaseTime = 0;
-		// IO_TOGGLE(EXT1);
-		
 		phase++;
-		if (phase == 6)
-		{
-			// IO_TOGGLE(SDA);
-			phase = 0;
-		}
 		setPhaseAC();
+		if (phase == 6)
+			phase = 0;
 		cps++;
 	}
+	disableAC();
+	IO_TOGGLE(LED);
 }
 
 
@@ -153,8 +146,8 @@ void setupStartingState()
 	delay = 0;
 	speedTime = 1;
 	
+	bldcSetDuty(130);
 	DISABLE_ALL();
-	_delay_ms(100);
 	phase = 0;
 	setPhaseAC();
 	_delay_ms(100);

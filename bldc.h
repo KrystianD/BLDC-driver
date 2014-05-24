@@ -21,7 +21,7 @@ typedef struct
 	uint8_t admux, acsr;
 } TPhase;
 
-TPhase phases[6];
+TPhase phases[7], phasesRev[7];
 
 void bldcInit();
 void bldcProcess();
