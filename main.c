@@ -12,7 +12,7 @@
 
 volatile unsigned int ticks = 0;
 
-
+#define TIMSK_BASE (_BV(TOIE2))
 
 #define STATE_STOPPED  0
 #define STATE_STARTING 1
@@ -20,19 +20,13 @@ volatile unsigned int ticks = 0;
 #define STATE_NORMAL   3
 #define STATE_STABILIZING   4
 
-volatile uint8_t id = 0;
-
 volatile uint8_t state;
 
 volatile uint8_t phase = 0;
 volatile uint8_t idx = 0;
 volatile uint8_t delay = 0;
 volatile uint8_t speedTime = 100;
-volatile uint16_t val = 0;
-volatile uint8_t brake = 0;
-volatile uint8_t type = 0;
 
-volatile uint8_t timer0 = 0;
 volatile uint16_t lastCommutationTime = 0;
 
 static inline void enableAC()
@@ -69,9 +63,8 @@ void setPhaseAC()
 	ACSR = p->acsr;
 	
 	TCNT0 = 255 - 50;
-	timer0 = 0;
 	TCCR0 = _BV(CS01);
-	TIMSK |= _BV(TOIE0);
+	TIMSK = TIMSK_BASE | _BV(TOIE0);
 	
 	lastCommutationTime = ticks;
 }
@@ -100,7 +93,7 @@ SIGNAL(TIMER0_OVF_vect)
 	else
 	{
 		enableAC();
-		TIMSK &= ~_BV(TOIE0);
+		TIMSK = TIMSK_BASE; // disable TOIE0
 		TCCR0 = 0;
 	}
 }
@@ -169,7 +162,7 @@ void setupStartingState()
 	enableAC();
 	
 	TCNT0 = speedTime;
-	TIMSK |= _BV(TOIE0);
+	TIMSK = TIMSK_BASE | _BV(TOIE0);
 	TCCR0 = _BV(CS01) | _BV(CS00);
 	
 	state = STATE_STARTING;
@@ -201,7 +194,7 @@ int main()
 	TCCR1A = TCCR1A_BASE;
 	TCCR1B = TCCR1B_BASE;
 	TCCR2 = TCCR2_BASE;
-	TIMSK |= _BV(TOIE2);
+	TIMSK = TIMSK_BASE;
 	
 	OCR2 = 20;
 	OCR1B = 20;
