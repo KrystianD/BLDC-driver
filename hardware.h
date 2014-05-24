@@ -8,6 +8,13 @@ extern volatile unsigned int ticks;
 #define SDA PORTC,4
 #define SCL PORTC,5
 
+#define P_UP_PIN_BV _BV(4)
+#define P_UN_PIN_BV _BV(3)
+#define P_VP_PIN_BV _BV(0)
+#define P_VN_PIN_BV _BV(2)
+#define P_WP_PIN_BV _BV(7)
+#define P_WN_PIN_BV _BV(1)
+
 #define P_UP PORTB,4
 #define P_UN PORTB,3 // OC2
 #define P_VP PORTB,0
@@ -24,11 +31,15 @@ extern volatile unsigned int ticks;
 #define ID2 PORTD,2
 
 // funcs
-#define BTN_PRESSED() (IO_IS_LOW(P_BTN))
-#define BTN2_PRESSED() (IO_IS_LOW(P_BTN2))
 
-#define ENABLE_POWER() { IO_PUSH_PULL(P_ON); IO_LOW(P_ON); }
-#define DISABLE_POWER() { IO_INPUT(P_ON); IO_LOW(P_ON); }
+#define UN_TCCR2  (_BV(COM21))
+#define UN_TCCR1A 0
+
+#define VN_TCCR2  0
+#define VN_TCCR1A (_BV(COM1B1))
+
+#define WN_TCCR2  0
+#define WN_TCCR1A (_BV(COM1A1))
 
 #define ENABLE_UN TCCR2 |= (_BV(COM21)/* | _BV(COM20)*/)
 #define DISABLE_UN TCCR2 &= ~(_BV(COM21)/* | _BV(COM20)*/)

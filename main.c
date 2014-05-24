@@ -19,29 +19,45 @@ volatile unsigned int ticks = 0;
 #define ACSR_RISING  (_BV(ACIS1))
 #define ACSR_FAILING (_BV(ACIS1) | _BV(ACIS0))
 
-uint16_t phases[] = {
-	UP | VN | ACW | ACFAILING,
-	UP | WN | ACV | ACRISING,
-	VP | WN | ACU | ACFAILING,
-	VP | UN | ACW | ACRISING,
-	WP | UN | ACV | ACFAILING,
-	WP | VN | ACU | ACRISING,
+#define TCCR1A_BASE (_BV(WGM10))
+#define TCCR1B_BASE (_BV(WGM12) | _BV(CS10))
+#define TCCR2_BASE (_BV(WGM21) | _BV(WGM20) | _BV(CS20))
+
+// #define UP_PORT _BV(P_UP_PIN)
+//
+struct TPhase
+{
+	u8 port;
+	u8 tccr2, tccr1a;
+	u8 admux, acsr;
+
+} phases1[] = {
+	// UP + VN + W_FAILING
+	{ .port = P_UP_PIN_BV, .tccr2 = TCCR2_BASE | VN_TCCR2, .tccr1a = TCCR1A_BASE | VN_TCCR1A, .admux = ADMUX_W, .acsr = ACSR_FAILING },
+                                                                                                       
+	// UP + WN + V_RISING                                                                                
+	{ .port = P_UP_PIN_BV, .tccr2 = TCCR2_BASE | WN_TCCR2, .tccr1a = TCCR1A_BASE | WN_TCCR1A, .admux = ADMUX_V, .acsr = ACSR_RISING },
+                                                                                                       
+	// VP + WN + U_FAILING                                                                               
+	{ .port = P_VP_PIN_BV, .tccr2 = TCCR2_BASE | WN_TCCR2, .tccr1a = TCCR1A_BASE | WN_TCCR1A, .admux = ADMUX_U, .acsr = ACSR_FAILING },
+                                                                                                       
+	// VP + UN + W_RISING                                                                                
+	{ .port = P_VP_PIN_BV, .tccr2 = TCCR2_BASE | UN_TCCR2, .tccr1a = TCCR1A_BASE | UN_TCCR1A, .admux = ADMUX_W, .acsr = ACSR_RISING },
+                                                                                                       
+	// WP + UN + V_FAILING                                                                               
+	{ .port = P_WP_PIN_BV, .tccr2 = TCCR2_BASE | UN_TCCR2, .tccr1a = TCCR1A_BASE | UN_TCCR1A, .admux = ADMUX_V, .acsr = ACSR_FAILING },
+                                                                                                       
+	// WP + VN + U_RISING                                                                                
+	{ .port = P_WP_PIN_BV, .tccr2 = TCCR2_BASE | VN_TCCR2, .tccr1a = TCCR1A_BASE | VN_TCCR1A, .admux = ADMUX_U, .acsr = ACSR_RISING },
 };
-uint8_t phasesADMUX[] = {
-	ADMUX_W,
-	ADMUX_V,
-	ADMUX_U,
-	ADMUX_W,
-	ADMUX_V,
-	ADMUX_U,
-};
-uint8_t phasesACSR[] = {
-	ACSR_FAILING,
-	ACSR_RISING,
-	ACSR_FAILING,
-	ACSR_RISING,
-	ACSR_FAILING,
-	ACSR_RISING,
+
+uint8_t phases[] = {
+	UP | VN,
+	UP | WN,
+	VP | WN,
+	VP | UN,
+	WP | UN,
+	WP | VN,
 };
 
 // uint8_t phasesorig[] = {
@@ -101,29 +117,35 @@ static inline void disableAC ()
 	ACSR |= _BV(ACI);	
 }
 
+void setPhase ()
+{
+	TCNT1 = TCNT2 = 0;
+
+	struct TPhase *p = &phases1[phase];
+
+	PORTB = p->port;
+	TCCR2 = p->tccr2;
+	TCCR1A = p->tccr1a;
+}
 void setPhaseAC ()
 {
-	u16 val = phases[phase];
 	TCNT1 = TCNT2 = 0;
-	if (val & UP) { ENABLE_UP; } else { DISABLE_UP; }
-	if (val & UN) { ENABLE_UN; } else { DISABLE_UN; }
-	if (val & VP) { ENABLE_VP; } else { DISABLE_VP; }
-	if (val & VN) { ENABLE_VN; } else { DISABLE_VN; }
-	if (val & WP) { ENABLE_WP; } else { DISABLE_WP; }
-	if (val & WN) { ENABLE_WN; } else { DISABLE_WN; }
 
-	u8 admux = phasesADMUX[phase];
-	u8 acsr = phasesACSR[phase];
-	ADMUX = admux;
-	ACSR = acsr;
+	struct TPhase *p = &phases1[phase];
 
-	if (state == STATE_NORMAL || state == STATE_STABILIZING)
-	{
+	PORTB = p->port;
+	TCCR2 = p->tccr2;
+	TCCR1A = p->tccr1a;
+	ADMUX = p->admux;
+	ACSR = p->acsr;
+
+	// if (state == STATE_NORMAL)
+	// {
 		TCNT0 = 255 - 50;
 		timer0 = 0;
 		TCCR0 = _BV(CS01);
 		TIMSK |= _BV(TOIE0);
-	}
+	// }
 
 	lastCommutationTime = ticks;
 }
@@ -161,7 +183,7 @@ SIGNAL(TIMER0_OVF_vect)
 					return;
 				}
 			}
-			setPhaseAC ();
+			setPhase ();
 		}
 	}
 	else
@@ -267,9 +289,10 @@ int main()
 
 	DISABLE_ALL();
 
-	TCCR1A = _BV(WGM10);
-	TCCR1B = _BV(WGM12) | _BV(CS10);
-	TCCR2 = _BV(WGM21) | _BV(WGM20) | _BV(CS20);
+
+	TCCR1A = TCCR1A_BASE;
+	TCCR1B = TCCR1B_BASE;
+	TCCR2 = TCCR2_BASE;
 	TIMSK |= _BV(TOIE2);
 
 	OCR2 = 20;
