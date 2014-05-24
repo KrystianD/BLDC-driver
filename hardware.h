@@ -31,6 +31,9 @@ extern volatile unsigned int ticks;
 #define ID2 PORTD,2
 
 // funcs
+#define ADMUX_U 0
+#define ADMUX_V _BV(MUX0)
+#define ADMUX_W _BV(MUX1)
 
 #define UN_TCCR2  (_BV(COM21))
 #define UN_TCCR1A 0
