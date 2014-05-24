@@ -17,7 +17,7 @@ void commInit()
 	comm_findID();
 
 #define TWI_ADDRESS 0x20
-	TWAR = ((TWI_ADDRESS + deviceID) << 1) | TWGCE;
+	TWAR = ((TWI_ADDRESS + deviceID) << 1) | _BV(TWGCE);
 	TWCR = _BV(TWEA) | _BV(TWEN) | _BV(TWIE);
 }
 
@@ -64,7 +64,7 @@ void comm_processInput()
 			uint8_t v4 = buf[4];
 			if (cmd == 0x11)
 			{
-				bldcSetDuty(v1);
+				bldcSetDuty(buf[1 + deviceID]);
 
 				state = STATE_IDLE;
 				bufIdx = 0;
@@ -115,12 +115,14 @@ ISR(TWI_vect)
 	{
 		// Slave READ
 	case TW_SR_SLA_ACK:
+	case TW_SR_GCALL_ACK:
 		TWCR = TWOPT | _BV(TWINT) | _BV(TWEA);
 
 		state = STATE_IDLE;
 		bufIdx = 0;
 		break;
 	case TW_SR_DATA_ACK:
+	case TW_SR_GCALL_DATA_ACK:
 		TWCR = TWOPT | _BV(TWINT) | _BV(TWEA);
 
 		if (state == STATE_IDLE)
