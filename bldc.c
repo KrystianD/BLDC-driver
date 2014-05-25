@@ -182,7 +182,7 @@ void bldc_setupStartingState()
 	state = STATE_STARTING;
 }
 
-void bldc_setPhase()
+inline void bldc_setPhase()
 {
 	TCNT1 = TCNT2 = 0;
 	
@@ -192,7 +192,7 @@ void bldc_setPhase()
 	TCCR2 = p->tccr2;
 	TCCR1A = p->tccr1a;
 }
-void bldc_setPhaseAC()
+inline void bldc_setPhaseAC()
 {
 	TCNT1 = TCNT2 = 0;
 	
