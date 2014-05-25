@@ -102,9 +102,9 @@ void bldcProcess()
 	case STATE_NORMAL:
 		_delay_ms(10);
 		cli();
-		uint16_t lct = lastCommutationTime;
+		uint32_t lct = lastCommutationTime;
 		sei();
-		if (ticks - lct > 10)
+		if (ticks - lct > 100)
 		{
 			bldcDisable();
 			bldcEnable();
