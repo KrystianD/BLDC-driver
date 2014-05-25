@@ -1,4 +1,4 @@
-extern volatile unsigned int ticks;
+extern volatile uint16_t ticks;
 
 #define LED PORTD,3
 #define UART_TX PORTD,1

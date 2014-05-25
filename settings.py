@@ -16,7 +16,9 @@ def crc16(buff, crc = 0, poly = 0xa001):
 		i += 1
 	return crc
 
-buf = [0xaa, 0xaa]
+d = int(sys.argv[1])
+startupDuty = int(sys.argv[2])
+buf = [0x10, d, startupDuty]
 
 crc = crc16(buf)
 buf.append((crc >> 0) & 0xff)

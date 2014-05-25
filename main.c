@@ -1,21 +1,13 @@
 #include <public.h>
 
-#define UART_BAUD     UART_BAUD_SELECT (9600,F_CPU)
-#define UART_DATABITS 8
-#include "UART.h"
 #include <stdio.h>
 
 #include "hardware.h"
 #include "bldc.h"
-#include "debug.h"
+// #include "debug.h"
 #include "comm.h"
 
-volatile unsigned int ticks = 0;
-
-
-
-
-
+volatile uint16_t ticks = 0;
 
 const int MS_INTERVAL = 5;
 SIGNAL(TIMER2_OVF_vect) // every 32us
@@ -31,14 +23,12 @@ SIGNAL(TIMER2_OVF_vect) // every 32us
 		if (ticks - last >= 1000 / CPS_PER_SEC)
 		{
 			last = ticks;
-			cli();
-			validCPS = cps * CPS_PER_SEC;
 			sei();
+			validCPS = cps * CPS_PER_SEC;
 			cps = 0;
 		}
 	}
 }
-
 
 int main()
 {

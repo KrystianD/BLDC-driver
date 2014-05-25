@@ -4,7 +4,8 @@
 
 #include "bldc.h"
 #include "crc16.h"
-#include "debug.h"
+// #include "debug.h"
+#include "settings.h"
 
 #define TWOPT (_BV(TWEN) | _BV(TWIE))
 
@@ -12,13 +13,21 @@
 #define STATE_RECV  1
 #define STATE_SEND  2
 
-#define CMD_DUTY 0x11
+#define CMD_SETTINGS 0x10
+#define CMD_DUTY     0x11
+#define CMD_STATUS   0x12
+#define CMD_RESET    0xaa
+
+#define CMD_SETTINGS_LEN 2
+#define CMD_DUTY_LEN     4
+#define CMD_STATUS_LEN   0
+#define CMD_RESET_LEN    1
 
 // public
 volatile uint8_t deviceID, deviceIDMask;
 
 // prv
-static uint8_t buf[6 + 2];
+static uint8_t buf[5 + 2];
 static uint8_t outbuf[3 + 2];
 volatile uint8_t comm_state = STATE_IDLE;
 volatile uint8_t bufIdx = 0;
@@ -48,35 +57,46 @@ void commProcess()
 
 void comm_processInput()
 {
-	if (comm_state == STATE_RECV && bufIdx == sizeof(buf))
+	if (comm_state == STATE_RECV)
 	{
 		int i;
-		uint16_t origCrc = *(uint16_t*)(buf + sizeof(buf) - 2);
+		uint16_t origCrc = *(uint16_t*)(buf + bufIdx - 2);
 		if (crc == origCrc)
 		{
 			uint8_t cmd = buf[0];
-			uint8_t states = buf[1];
-			uint8_t v1 = buf[2];
-			uint8_t v2 = buf[3];
-			uint8_t v3 = buf[4];
-			uint8_t v4 = buf[5];
-			if (cmd == 0x11)
+			uint8_t len = bufIdx - sizeof(origCrc) - sizeof(cmd);
+			uint8_t* data = buf + 1;
+
+			if (cmd == CMD_SETTINGS && len == CMD_SETTINGS_LEN)
 			{
-				if (states & deviceIDMask)
+				if (state == STATE_STOPPED)
 				{
+					uint8_t dir = data[0];
+					uint8_t startupDuty = data[1];
+					if (startupDuty > STARTUP_DUTY_MAX)
+						startupDuty = STARTUP_DUTY_MAX;
+
+					SET_startupDuty = startupDuty;
+					if (dir == 0)
+						SET_phasesOffset = 0;
+					else
+						SET_phasesOffset = 6;
+				}
+			}
+			else if (cmd == CMD_DUTY && len == CMD_DUTY_LEN)
+			{
+				uint8_t duty = data[deviceID];
+				if (duty > 0)
 					bldcEnable();
-				}
 				else
-				{
 					bldcDisable();
-				}
 				
-				bldcSetDesiredDuty(buf[2 + deviceID]);
+				bldcSetDesiredDuty(duty);
 				
 				comm_state = STATE_IDLE;
 				bufIdx = 0;
 			}
-			else if (cmd == 0x12)
+			else if (cmd == CMD_STATUS && len == CMD_STATUS_LEN)
 			{
 				cli();
 				outbuf[0] = 0xaa;
@@ -91,11 +111,14 @@ void comm_processInput()
 				comm_state = STATE_SEND;
 				bufIdx = 0;
 			}
-			else if (cmd == 0xaa && v1 == 0xaa && v2 == 0xbb && v3 == 0xcc && v4 == 0xdd)
+			else if (cmd == CMD_RESET && len == CMD_RESET_LEN)
 			{
-				wdt_enable(WDTO_15MS);
-				cli();
-				for (;;);
+				if (data[0] == 0xaa)
+				{
+					wdt_enable(WDTO_15MS);
+					cli();
+					for (;;);
+				}
 			}
 			else
 			{
@@ -103,9 +126,11 @@ void comm_processInput()
 				bufIdx = 0;
 			}
 		}
-		
-		// comm_state = STATE_IDLE;
-		// bufIdx = 0;
+		else
+		{
+			comm_state = STATE_IDLE;
+			bufIdx = 0;
+		}
 	}
 	else
 	{
@@ -136,15 +161,15 @@ ISR(TWI_vect)
 		{
 			bufIdx = 0;
 			buf[bufIdx++] = c;
-			crc = crcUpdate(0, c);
+			crc = 0;
 			comm_state = STATE_RECV;
 		}
 		else if (comm_state == STATE_RECV)
 		{
 			if (bufIdx < sizeof(buf))
 			{
-				if (bufIdx < sizeof(buf) - 2)
-					crc = crcUpdate(crc, c);
+				if (bufIdx >= 2)
+					crc = crcUpdate(crc, buf[bufIdx - 2]);
 				buf[bufIdx++] = c;
 			}
 		}

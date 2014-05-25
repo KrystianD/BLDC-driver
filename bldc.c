@@ -3,21 +3,28 @@
 #include "bldc.h"
 
 #include "speeds.h"
+#include "settings.h"
+
+// settings
+volatile uint8_t SET_startupDuty = STARTUP_DUTY;
 
 volatile uint16_t cps = 0, validCPS = 0;
+
+// starting
+volatile uint8_t speedIdx = 0;
+volatile uint8_t delay = 0;
 
 volatile uint8_t enabled = 0;
 volatile uint8_t desiredDuty = 80;
 volatile uint8_t state = STATE_STOPPED;
-
-volatile uint8_t phase = 0;
-volatile uint8_t speedIdx = 0;
-volatile uint8_t delay = 0;
-
 volatile uint16_t lastCommutationTime = 0;
 
-TPhase phases[7] =
+register uint8_t phase asm("r4");
+
+TPhase phases[7 + 7] =
+// TPhase phasesForward[7] =
 {
+	// FORWARD
 	// UP + VN + W_FAILING
 	{ .port = P_UP_PIN_BV, .tccr2 = TCCR2_BASE | VN_TCCR2, .tccr1a = TCCR1A_BASE | VN_TCCR1A, .admux = ADMUX_W, .acsr = ACSR_FAILING },
 	
@@ -39,10 +46,10 @@ TPhase phases[7] =
 	// repeated first entry for optimization
 	// UP + VN + W_FAILING
 	{ .port = P_UP_PIN_BV, .tccr2 = TCCR2_BASE | VN_TCCR2, .tccr1a = TCCR1A_BASE | VN_TCCR1A, .admux = ADMUX_W, .acsr = ACSR_FAILING },
-};
 
-TPhase phasesRev[7] =
-{
+	/* ------------------------------------------------------------------------------------------------------------------------------ */
+
+	// BACKWARD
 	// WP + VN + U_FAILING
 	{ .port = P_WP_PIN_BV, .tccr2 = TCCR2_BASE | VN_TCCR2, .tccr1a = TCCR1A_BASE | VN_TCCR1A, .admux = ADMUX_U, .acsr = ACSR_FAILING },
 	
@@ -75,6 +82,7 @@ void bldc_setPhaseAC();
 
 void bldcInit()
 {
+	SET_phasesOffset = 0;
 }
 
 void bldcProcess()
@@ -105,7 +113,7 @@ void bldcProcess()
 	case STATE_NORMAL:
 		_delay_ms(10);
 		cli();
-		uint32_t lct = lastCommutationTime;
+		uint16_t lct = lastCommutationTime;
 		sei();
 		if (ticks - lct > 100)
 		{
@@ -143,12 +151,12 @@ void bldcSetDesiredDuty(uint8_t duty)
 		bldcSetDuty(duty);
 }
 
-static inline void bldc_enableAC()
+inline void bldc_enableAC()
 {
 	ACSR |= _BV(ACIE);
 	ACSR |= _BV(ACI);
 }
-static inline void bldc_disableAC()
+inline void bldc_disableAC()
 {
 	ACSR &= ~_BV(ACIE);
 	ACSR |= _BV(ACI);
@@ -165,12 +173,11 @@ void bldc_setupStartingState()
 	delay = 0;
 	speedIdx = 0;
 	
-	bldcSetDuty(130);
-	bldcSetDuty(50);
+	bldcSetDuty(SET_startupDuty);
 	DISABLE_ALL();
 	phase = 0;
 	bldc_setPhaseAC();
-	_delay_ms(100);
+	_delay_ms(300);
 	
 	bldc_enableAC();
 	
@@ -186,7 +193,7 @@ inline void bldc_setPhase()
 {
 	TCNT1 = TCNT2 = 0;
 	
-	const TPhase *p = &phases[phase];
+	const volatile TPhase *p = &phases[phase + SET_phasesOffset];
 	
 	PORTB = p->port;
 	TCCR2 = p->tccr2;
@@ -196,7 +203,7 @@ inline void bldc_setPhaseAC()
 {
 	TCNT1 = TCNT2 = 0;
 	
-	const TPhase *p = &phases[phase];
+	const volatile TPhase *p = &phases[phase + SET_phasesOffset];
 	
 	PORTB = p->port;
 	TCCR2 = p->tccr2;

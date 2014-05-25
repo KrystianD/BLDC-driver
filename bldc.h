@@ -25,20 +25,23 @@ typedef struct
 	uint8_t admux, acsr;
 } TPhase;
 
-TPhase phases[7], phasesRev[7];
+// settings
+register uint8_t SET_phasesOffset asm("r3");
+extern volatile uint8_t SET_startupDuty;
 
 // cps - commutations per second
 extern volatile uint16_t cps, validCPS;
 
-extern volatile uint8_t enabled;
-extern volatile uint8_t desiredDuty;
-extern volatile uint8_t state;
-
-extern volatile uint8_t phase;
+// starting
 extern volatile uint8_t speedIdx;
 extern volatile uint8_t delay;
 
+extern volatile uint8_t enabled;
+extern volatile uint8_t desiredDuty;
+extern volatile uint8_t state;
 extern volatile uint16_t lastCommutationTime;
+
+extern TPhase phases[7 + 7];
 
 void bldcInit();
 void bldcProcess();
