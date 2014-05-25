@@ -8,10 +8,24 @@
 
 #define TWOPT (_BV(TWEN) | _BV(TWIE))
 
-volatile uint8_t deviceID;
+#define STATE_IDLE  0
+#define STATE_RECV  1
+#define STATE_SEND  2
+
+#define CMD_DUTY 0x11
+
+// public
+volatile uint8_t deviceID, deviceIDMask;
+
+// prv
+static uint8_t buf[6 + 2];
+static uint8_t outbuf[3 + 2];
+static uint8_t comm_state = STATE_IDLE;
+static uint8_t bufIdx = 0;
 
 void comm_findID();
 
+// impl
 void commInit()
 {
 	comm_findID();
@@ -31,21 +45,10 @@ void commProcess()
 	}
 }
 
-#define STATE_IDLE  0
-#define STATE_RECV  1
-#define STATE_SEND  2
-
-#define CMD_DUTY 0x11
-
-static uint8_t buf[5 + 2];
-static uint8_t outbuf[3 + 2];
-static uint8_t state = STATE_IDLE;
-static uint8_t bufIdx = 0;
-
 void comm_processInput()
 {
 	uint16_t crc;
-	if (state == STATE_RECV && bufIdx == sizeof(buf))
+	if (comm_state == STATE_RECV && bufIdx == sizeof(buf))
 	{
 		int i;
 		crc = crcUpdate(  0, buf[0]);
@@ -53,20 +56,31 @@ void comm_processInput()
 		crc = crcUpdate(crc, buf[2]);
 		crc = crcUpdate(crc, buf[3]);
 		crc = crcUpdate(crc, buf[4]);
+		crc = crcUpdate(crc, buf[5]);
 
 		uint16_t origCrc = *(uint16_t*)(buf + sizeof(buf) - 2);
 		if (crc == origCrc)
 		{
 			uint8_t cmd = buf[0];
-			uint8_t v1 = buf[1];
-			uint8_t v2 = buf[2];
-			uint8_t v3 = buf[3];
-			uint8_t v4 = buf[4];
+			uint8_t states = buf[1];
+			uint8_t v1 = buf[2];
+			uint8_t v2 = buf[3];
+			uint8_t v3 = buf[4];
+			uint8_t v4 = buf[5];
 			if (cmd == 0x11)
 			{
-				bldcSetDuty(buf[1 + deviceID]);
+				if (states & deviceIDMask)
+				{
+					bldcEnable();
+				}
+				else
+				{
+					bldcDisable();
+				}
 
-				state = STATE_IDLE;
+				bldcSetDesiredDuty(buf[2 + deviceID]);
+
+				comm_state = STATE_IDLE;
 				bufIdx = 0;
 			}
 			else if (cmd == 0x12)
@@ -81,7 +95,7 @@ void comm_processInput()
 				crc = crcUpdate(crc, outbuf[2]);
 				*(uint16_t*)(outbuf + sizeof(outbuf) - 2) = crc;
 
-				state = STATE_SEND;
+				comm_state = STATE_SEND;
 				bufIdx = 0;
 			}
 			else if (cmd == 0xaa && v1 == 0xaa && v2 == 0xbb && v3 == 0xcc && v4 == 0xdd)
@@ -92,17 +106,17 @@ void comm_processInput()
 			}
 			else
 			{
-				state = STATE_IDLE;
+				comm_state = STATE_IDLE;
 				bufIdx = 0;
 			}
 		}
 
-		// state = STATE_IDLE;
+		// comm_state = STATE_IDLE;
 		// bufIdx = 0;
 	}
 	else
 	{
-		state = STATE_IDLE;
+		comm_state = STATE_IDLE;
 		bufIdx = 0;
 	}
 }
@@ -118,20 +132,20 @@ ISR(TWI_vect)
 	case TW_SR_GCALL_ACK:
 		TWCR = TWOPT | _BV(TWINT) | _BV(TWEA);
 
-		state = STATE_IDLE;
+		comm_state = STATE_IDLE;
 		bufIdx = 0;
 		break;
 	case TW_SR_DATA_ACK:
 	case TW_SR_GCALL_DATA_ACK:
 		TWCR = TWOPT | _BV(TWINT) | _BV(TWEA);
 
-		if (state == STATE_IDLE)
+		if (comm_state == STATE_IDLE)
 		{
 			bufIdx = 0;
 			buf[bufIdx++] = c;
-			state = STATE_RECV;
+			comm_state = STATE_RECV;
 		}
-		else if (state == STATE_RECV)
+		else if (comm_state == STATE_RECV)
 		{
 			if (bufIdx < sizeof(buf))
 				buf[bufIdx++] = c;
@@ -150,7 +164,7 @@ ISR(TWI_vect)
 
 		// Slave TRANSMIT
 	case TW_ST_SLA_ACK:
-		if (state == STATE_SEND)
+		if (comm_state == STATE_SEND)
 		{
 			TWDR = outbuf[bufIdx++];
 			TWCR = TWOPT | _BV(TWINT) | _BV(TWEA);
@@ -162,13 +176,13 @@ ISR(TWI_vect)
 		break;
 
 	case TW_ST_DATA_ACK:
-		if (state == STATE_SEND)
+		if (comm_state == STATE_SEND)
 		{
 			TWDR = outbuf[bufIdx++];
 			if (bufIdx == sizeof(outbuf))
 			{
 				TWCR = TWOPT | _BV(TWINT);
-				state = STATE_IDLE;
+				comm_state = STATE_IDLE;
 			}
 			else
 			{
@@ -226,6 +240,7 @@ void comm_findID()
 	{
 		deviceID = 3;
 	}
+	deviceIDMask = 1 << deviceID;
 
 	IO_INPUT(ID0);
 	IO_INPUT(ID1);

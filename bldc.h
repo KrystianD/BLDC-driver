@@ -3,8 +3,12 @@
 
 #include <stdint.h>
 
-// cps - commutations per second
-extern volatile uint16_t cps, validCPS;
+#define STATE_STOPPED  0
+#define STATE_STARTING 1
+#define STATE_CHANGING 2
+#define STATE_NORMAL   3
+
+#define TIMSK_BASE (_BV(TOIE2))
 
 // inverted
 #define ACSR_RISING  (_BV(ACIS1))
@@ -23,9 +27,27 @@ typedef struct
 
 TPhase phases[7], phasesRev[7];
 
+// cps - commutations per second
+extern volatile uint16_t cps, validCPS;
+
+extern volatile uint8_t enabled;
+extern volatile uint8_t desiredDuty;
+extern volatile uint8_t state;
+
+extern volatile uint8_t phase;
+extern volatile uint8_t speedIdx;
+extern volatile uint8_t delay;
+
+extern volatile uint16_t lastCommutationTime;
+
 void bldcInit();
 void bldcProcess();
 
+void bldcEnable();
+void bldcDisable();
+
 void bldcSetDuty(uint8_t duty);
+void bldcSetDesiredDuty(uint8_t duty);
+
 
 #endif
