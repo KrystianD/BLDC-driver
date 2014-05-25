@@ -87,13 +87,16 @@ void bldcProcess()
 		_delay_ms(1);
 		delay++;
 		
-		if (delay >= 50)
+		if (delay >= 10)
 		{
-			speedIdx++;
 			delay = 0;
-			if (speedIdx == sizeof(speeds) / sizeof(speeds[0]))
+			if (speedIdx == sizeof(speeds) / sizeof(speeds[0]) - 1)
 			{
 				state = STATE_CHANGING;
+			}
+			else
+			{
+				speedIdx++;
 			}
 		}
 		break;
@@ -163,6 +166,7 @@ void bldc_setupStartingState()
 	speedIdx = 0;
 	
 	bldcSetDuty(130);
+	bldcSetDuty(50);
 	DISABLE_ALL();
 	phase = 0;
 	bldc_setPhaseAC();
@@ -214,7 +218,6 @@ SIGNAL(TIMER0_OVF_vect)
 	{
 		TCNT0 = speeds[speedIdx];
 		phase++;
-		bldc_setPhase();
 		if (phase == 6)
 		{
 			phase = 0;
@@ -228,6 +231,7 @@ SIGNAL(TIMER0_OVF_vect)
 				return;
 			}
 		}
+		bldc_setPhase();
 	}
 	else
 	{
