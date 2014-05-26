@@ -58,7 +58,7 @@ class Driver:
     self.cmd(self.CMD_SETTINGS, [_dir, startupDuty])
 
   def send(self, data):
-    s = "i2cset -y {0} 0x{1:x} 0x{2:x} {3} i".format(self.bus, self.addr, data[0], " ".join([str(x) for x in data[1:]]))
+    s = "./i2c 0x{1:x} 0x{2:x} {3}".format(self.bus, self.addr, data[0], " ".join([str(x) for x in data[1:]]))
     print (s)
     os.system(s)
 
