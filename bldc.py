@@ -19,6 +19,7 @@ def crc16(buff, crc = 0, poly = 0xa001):
 class Driver:
   CMD_SETTINGS = 0x10
   CMD_DUTY = 0x11
+  CMD_RESET = 0xaa
 
   bus = None
   num = None
@@ -49,6 +50,9 @@ class Driver:
 
   def setDutyAll(self, d1, d2, d3, d4):
     self.cmd(self.CMD_DUTY, [d1, d2, d3, d4])
+
+  def reset(self):
+    self.cmd(self.CMD_RESET, [0xaa])
 
   def sendSettings(self, _dir, startupDuty = 50):
     self.cmd(self.CMD_SETTINGS, [_dir, startupDuty])
