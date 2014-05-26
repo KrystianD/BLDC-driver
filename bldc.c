@@ -114,8 +114,9 @@ void bldcProcess()
 		_delay_ms(10);
 		cli();
 		uint16_t lct = lastCommutationTime;
+		uint16_t tmpTicks = ticks;
 		sei();
-		if (ticks - lct > 100)
+		if (tmpTicks - lct > 100)
 		{
 			bldcDisable();
 			bldcEnable();
