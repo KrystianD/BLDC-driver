@@ -95,6 +95,19 @@ void comm_processInput()
 				
 				bufIdx = 0;
 			}
+			else if (cmd == CMD_STATUS && len == CMD_STATUS_LEN)
+			{
+				uint16_t crc2;
+				outbuf[0] = state;
+				outbuf[1] = (validCPS >> 0) & 0xff;
+				outbuf[2] = (validCPS >> 8) & 0xff;
+				crc2 = crcUpdate(0, outbuf[0]);
+				crc2 = crcUpdate(crc2, outbuf[1]);
+				crc2 = crcUpdate(crc2, outbuf[2]);
+				*(uint16_t*)(outbuf + sizeof(outbuf) - 2) = crc2;
+				
+				bufIdx = 0;
+			}
 			else if (cmd == CMD_RESET && len == CMD_RESET_LEN)
 			{
 				if (data[0] == 0xaa)
