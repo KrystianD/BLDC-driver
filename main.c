@@ -23,7 +23,6 @@ SIGNAL(TIMER2_OVF_vect) // every 32us
 		if (ticks - last >= 1000 / CPS_PER_SEC)
 		{
 			last = ticks;
-			sei();
 			validCPS = cps * CPS_PER_SEC;
 			cps = 0;
 		}
