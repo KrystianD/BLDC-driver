@@ -21,9 +21,8 @@ volatile uint8_t deviceID, deviceIDMask;
 // prv
 static uint8_t buf[5 + 2];
 static uint8_t outbuf[3 + 2];
-volatile uint8_t comm_state = STATE_IDLE;
 volatile uint8_t bufIdx = 0;
-volatile uint16_t crc;
+uint16_t crc;
 
 void comm_findID();
 
@@ -49,7 +48,7 @@ void commProcess()
 
 void comm_processInput()
 {
-	if (comm_state == STATE_RECV)
+	if (bufIdx >= 1 + 2)
 	{
 		int i;
 		uint16_t origCrc = *(uint16_t*)(buf + bufIdx - 2);
@@ -58,7 +57,7 @@ void comm_processInput()
 			uint8_t cmd = buf[0];
 			uint8_t len = bufIdx - sizeof(origCrc) - sizeof(cmd);
 			uint8_t* data = buf + 1;
-
+			
 			if (cmd == CMD_SETTINGS && len == CMD_SETTINGS_LEN)
 			{
 				if (state == STATE_STOPPED)
@@ -67,7 +66,7 @@ void comm_processInput()
 					uint8_t startupDuty = data[1];
 					if (startupDuty > STARTUP_DUTY_MAX)
 						startupDuty = STARTUP_DUTY_MAX;
-
+						
 					SET_startupDuty = startupDuty;
 					if (dir == 0)
 						SET_phasesOffset = 0;
@@ -82,25 +81,18 @@ void comm_processInput()
 					bldcEnable();
 				else
 					bldcDisable();
-				
+					
 				bldcSetDesiredDuty(duty);
 				
-				comm_state = STATE_IDLE;
-				bufIdx = 0;
-			}
-			else if (cmd == CMD_STATUS && len == CMD_STATUS_LEN)
-			{
-				cli();
-				outbuf[0] = 0xaa;
+				uint16_t crc2;
+				outbuf[0] = state;
 				outbuf[1] = (validCPS >> 0) & 0xff;
 				outbuf[2] = (validCPS >> 8) & 0xff;
-				sei();
-				crc = crcUpdate(0, outbuf[0]);
-				crc = crcUpdate(crc, outbuf[1]);
-				crc = crcUpdate(crc, outbuf[2]);
-				*(uint16_t*)(outbuf + sizeof(outbuf) - 2) = crc;
+				crc2 = crcUpdate(0, outbuf[0]);
+				crc2 = crcUpdate(crc2, outbuf[1]);
+				crc2 = crcUpdate(crc2, outbuf[2]);
+				*(uint16_t*)(outbuf + sizeof(outbuf) - 2) = crc2;
 				
-				comm_state = STATE_SEND;
 				bufIdx = 0;
 			}
 			else if (cmd == CMD_RESET && len == CMD_RESET_LEN)
@@ -114,19 +106,16 @@ void comm_processInput()
 			}
 			else
 			{
-				comm_state = STATE_IDLE;
 				bufIdx = 0;
 			}
 		}
 		else
 		{
-			comm_state = STATE_IDLE;
 			bufIdx = 0;
 		}
 	}
 	else
 	{
-		comm_state = STATE_IDLE;
 		bufIdx = 0;
 	}
 }
@@ -142,28 +131,18 @@ ISR(TWI_vect)
 	case TW_SR_GCALL_ACK:
 		TWCR = TWOPT | _BV(TWINT) | _BV(TWEA);
 		
-		comm_state = STATE_IDLE;
 		bufIdx = 0;
+		crc = 0;
 		break;
 	case TW_SR_DATA_ACK:
 	case TW_SR_GCALL_DATA_ACK:
 		TWCR = TWOPT | _BV(TWINT) | _BV(TWEA);
 		
-		if (comm_state == STATE_IDLE)
+		if (bufIdx < sizeof(buf))
 		{
-			bufIdx = 0;
+			if (bufIdx >= 2)
+				crc = crcUpdate(crc, buf[bufIdx - 2]);
 			buf[bufIdx++] = c;
-			crc = 0;
-			comm_state = STATE_RECV;
-		}
-		else if (comm_state == STATE_RECV)
-		{
-			if (bufIdx < sizeof(buf))
-			{
-				if (bufIdx >= 2)
-					crc = crcUpdate(crc, buf[bufIdx - 2]);
-				buf[bufIdx++] = c;
-			}
 		}
 		break;
 	case TW_SR_STOP:
@@ -174,55 +153,37 @@ ISR(TWI_vect)
 		
 	// Slave TRANSMIT
 	case TW_ST_SLA_ACK:
-		if (comm_state == STATE_SEND)
-		{
-			TWDR = outbuf[bufIdx++];
-			TWCR = TWOPT | _BV(TWINT) | _BV(TWEA);
-		}
-		else
-		{
-			TWCR = TWOPT | _BV(TWINT);
-		}
+		bufIdx = 0;
+		TWDR = outbuf[bufIdx++];
+		TWCR = TWOPT | _BV(TWINT) | _BV(TWEA);
 		break;
 		
 	case TW_ST_DATA_ACK:
-		if (comm_state == STATE_SEND)
+		TWDR = outbuf[bufIdx++];
+		if (bufIdx == sizeof(outbuf))
 		{
-			TWDR = outbuf[bufIdx++];
-			if (bufIdx == sizeof(outbuf))
-			{
-				TWCR = TWOPT | _BV(TWINT);
-				comm_state = STATE_IDLE;
-			}
-			else
-			{
-				TWCR = TWOPT | _BV(TWINT) | _BV(TWEA);
-			}
+			TWCR = TWOPT | _BV(TWINT);
+			bufIdx = 0;
 		}
 		else
 		{
-			TWCR = TWOPT | _BV(TWINT);
+			TWCR = TWOPT | _BV(TWINT) | _BV(TWEA);
 		}
 		break;
 		
 	case TW_ST_DATA_NACK:
 		TWCR = TWOPT | _BV(TWINT) | _BV(TWEA);
-		// printf("NA\r\n");
 		break;
 		
 	case TW_ST_LAST_DATA:
 		TWCR = TWOPT | _BV(TWINT) | _BV(TWEA);
-		// printf("LA\r\n");
 		break;
 		
 	case TW_BUS_ERROR:
 		TWCR = TWOPT | _BV(TWINT) | _BV(TWEA) | _BV(TWSTO);
-		// printf("buserr\r\n");
-		
 		break;
 	default:
 		TWCR = TWOPT | _BV(TWINT) | _BV(TWEA);
-		// printf("oth 0x%02x\r\n", TWSR);
 		break;
 	}
 }
