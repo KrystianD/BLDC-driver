@@ -10,6 +10,9 @@ volatile uint8_t SET_startupDuty = STARTUP_DUTY;
 
 volatile uint16_t cps = 0, validCPS = 0;
 
+// stabilizing
+volatile uint16_t stabilizingRemTime;
+
 // starting
 volatile uint8_t speedIdx = 0;
 volatile uint8_t delay = 0;
@@ -46,9 +49,9 @@ TPhase phases[7 + 7] =
 	// repeated first entry for optimization
 	// UP + VN + W_FAILING
 	{ .port = P_UP_PIN_BV, .tccr2 = TCCR2_BASE | VN_TCCR2, .tccr1a = TCCR1A_BASE | VN_TCCR1A, .admux = ADMUX_W, .acsr = ACSR_FAILING },
-
+	
 	/* ------------------------------------------------------------------------------------------------------------------------------ */
-
+	
 	// BACKWARD
 	// WP + VN + U_FAILING
 	{ .port = P_WP_PIN_BV, .tccr2 = TCCR2_BASE | VN_TCCR2, .tccr1a = TCCR1A_BASE | VN_TCCR1A, .admux = ADMUX_U, .acsr = ACSR_FAILING },
@@ -90,6 +93,25 @@ void bldcProcess()
 	switch (state)
 	{
 	case STATE_STOPPED:
+		break;
+	case STATE_STABILIZING:
+		if (stabilizingRemTime == 0)
+		{
+			delay = 0;
+			speedIdx = 0;
+			
+			TCNT0 = 0;
+			TIMSK = TIMSK_BASE | _BV(TOIE0);
+			TCCR0 = _BV(CS01) | _BV(CS00); // /64 = 8uS per tick = 2048uS per range
+			TCCR0 = _BV(CS02);// | _BV(CS00);;
+			
+			state = STATE_STARTING;
+		}
+		else
+		{
+			_delay_ms(1);
+			stabilizingRemTime--;
+		}
 		break;
 	case STATE_STARTING:
 		_delay_ms(1);
@@ -171,23 +193,12 @@ void bldc_setupStoppedState()
 }
 void bldc_setupStartingState()
 {
-	delay = 0;
-	speedIdx = 0;
-	
 	bldcSetDuty(SET_startupDuty);
-	DISABLE_ALL();
 	phase = 0;
 	bldc_setPhaseAC();
-	_delay_ms(300);
-	
-	bldc_enableAC();
-	
-	TCNT0 = 0;
-	TIMSK = TIMSK_BASE | _BV(TOIE0);
-	TCCR0 = _BV(CS01) | _BV(CS00); // /64 = 8uS per tick = 2048uS per range
-	TCCR0 = _BV(CS02);// | _BV(CS00);;
-	
-	state = STATE_STARTING;
+
+	state = STATE_STABILIZING;
+	stabilizingRemTime = STABILIZATION_TIME_MS;
 }
 
 inline void bldc_setPhase()

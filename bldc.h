@@ -3,10 +3,11 @@
 
 #include <stdint.h>
 
-#define STATE_STOPPED  0
-#define STATE_STARTING 1
-#define STATE_CHANGING 2
-#define STATE_NORMAL   3
+#define STATE_STOPPED     0
+#define STATE_STABILIZING 1
+#define STATE_STARTING    2
+#define STATE_CHANGING    3
+#define STATE_NORMAL      4
 
 #define TIMSK_BASE (_BV(TOIE2))
 
@@ -31,6 +32,9 @@ extern volatile uint8_t SET_startupDuty;
 
 // cps - commutations per second
 extern volatile uint16_t cps, validCPS;
+
+// stabilizing
+extern volatile uint16_t stabilizingRemTime;
 
 // starting
 extern volatile uint8_t speedIdx;
