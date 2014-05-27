@@ -1,4 +1,4 @@
-import os
+import os, fcntl
 
 def crc16(buff, crc = 0, poly = 0xa001):
 	l = len(buff)
@@ -58,7 +58,10 @@ class Driver:
     self.cmd(self.CMD_SETTINGS, [_dir, startupDuty])
 
   def send(self, data):
-    s = "./i2c 0x{1:x} 0x{2:x} {3}".format(self.bus, self.addr, data[0], " ".join([str(x) for x in data[1:]]))
-    print (s)
-    os.system(s)
+    I2C_SLAVE = 0x0703
 
+    fd = open("/dev/i2c-" + str(self.bus), "w")
+    fcntl.ioctl(fd.fileno(), I2C_SLAVE, self.addr)
+    b = "".join([chr(x) for x in data]).encode("latin-1")
+    os.write(fd.fileno(), b)
+    fd.close()
