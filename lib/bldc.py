@@ -44,7 +44,11 @@ class Driver:
 		else:
 			b = [0, 0, 0, 0]
 			b[self.num] = duty
-			self.cmd(self.CMD_DUTY, b, 0)
+			d = self.cmd(self.CMD_DUTY, b, 3)
+			return {
+					"state": d[0],
+					"speed": (d[2] << 8) | d[1] }
+			
 
 	def setDutyAll(self, d1, d2, d3, d4):
 		self.cmd(self.CMD_DUTY, [d1, d2, d3, d4])

@@ -11,4 +11,6 @@ else:
 duty = int(sys.argv[3])
 
 d = bldc.Driver(device, num)
-d.setDuty(duty)
+status = d.setDuty(duty)
+print(status["state"])
+print(status["speed"])
