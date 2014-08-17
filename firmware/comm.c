@@ -6,10 +6,9 @@
 #include "crc16.h"
 // #include "debug.h"
 #include "settings.h"
+#include "bldc_driver.h"
 
 #define TWOPT (_BV(TWEN) | _BV(TWIE))
-
-#include "bldc_driver.h"
 
 // public
 volatile uint8_t deviceID, deviceIDMask;

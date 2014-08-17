@@ -1,3 +1,5 @@
+#ifdef DEBUG_ENABLED
+
 #include <public.h>
 #include <stdio.h>
 #include "debug.h"
@@ -8,15 +10,17 @@
 
 int put(char c, FILE* stream)
 {
-	UART_Transmit(c);
+	uartTX(c);
 	return 0;
 }
 FILE mystdout = FDEV_SETUP_STREAM(&put, 0, _FDEV_SETUP_WRITE);
 
 void debugInit()
 {
-	UART_Init ();
+	uartInit();
 	stdout = &mystdout;
-
+	
 	DEBUG("OK");
 }
+
+#endif
