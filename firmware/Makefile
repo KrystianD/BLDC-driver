@@ -1,0 +1,35 @@
+CC=avr-gcc
+CXX=avr-g++
+
+F_CPU=8000000
+
+DEFINES=-DF_CPU=$(F_CPU)
+INCLUDEPATH=-Iavr-utils -I..
+
+CFLAGS=-mmcu=atmega8 -ggdb -Werror=implicit -O3 -fdata-sections -ffunction-sections
+CFLAGS+=$(DEFINES)
+CFLAGS+=$(INCLUDEPATH)
+LFLAGS=-Wl,--relax,--gc-sections -Wl,-gc-sections -Wl,-Map=build/main.map
+
+all: build/main.elf
+	mkdir -p build/
+	avr-objcopy -O binary build/main.elf build/main.bin
+	avr-objcopy -O ihex build/main.elf build/main.hex
+	avr-objdump -h -S build/main.elf > build/main.lst
+	avr-size build/main.elf
+
+build/main.o: main.c
+	$(CC) $(CFLAGS) -c $< -o $@
+
+build/comm.o: comm.c
+	$(CC) $(CFLAGS) -c $< -o $@
+
+build/bldc.o: bldc.c
+	$(CC) $(CFLAGS) -c $< -o $@
+
+build/__crc16.o: ../crc16.c
+	$(CC) $(CFLAGS) -c $< -o $@
+
+build/main.elf: build/main.o build/comm.o build/bldc.o build/__crc16.o
+	$(CC) $(CFLAGS) $(LFLAGS) $^ -lm -lc -o $@
+

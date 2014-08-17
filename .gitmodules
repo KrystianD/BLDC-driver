@@ -1,3 +1,6 @@
 [submodule "software/kdutils"]
 	path = software/kdutils
 	url = git@github.com:KrystianD/kdutils.git
+[submodule "firmware/avr-utils"]
+	path = firmware/avr-utils
+	url = git@github.com:KrystianD/avr-utils.git
