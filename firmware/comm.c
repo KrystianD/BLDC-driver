@@ -9,10 +9,6 @@
 
 #define TWOPT (_BV(TWEN) | _BV(TWIE))
 
-#define STATE_IDLE  0
-#define STATE_RECV  1
-#define STATE_SEND  2
-
 #include "bldc_driver.h"
 
 // public
@@ -24,15 +20,15 @@ static uint8_t outbuf[3 + 2];
 volatile uint8_t bufIdx = 0;
 uint16_t crc;
 
-void comm_findID();
+static inline void comm_findID();
+static inline void comm_prepareInfoData();
 
 // impl
 void commInit()
 {
 	comm_findID();
 	
-#define TWI_ADDRESS 0x20
-	TWAR = ((TWI_ADDRESS + deviceID) << 1) | _BV(TWGCE);
+	TWAR = ((TWI_BASE_ADDRESS + deviceID) << 1) | _BV(TWGCE);
 	TWCR = _BV(TWEA) | _BV(TWEN) | _BV(TWIE);
 }
 
@@ -84,27 +80,13 @@ void comm_processInput()
 					
 				bldcSetDesiredDuty(duty);
 				
-				uint16_t crc2;
-				outbuf[0] = state;
-				outbuf[1] = (validCPS >> 0) & 0xff;
-				outbuf[2] = (validCPS >> 8) & 0xff;
-				crc2 = crcUpdate(0, outbuf[0]);
-				crc2 = crcUpdate(crc2, outbuf[1]);
-				crc2 = crcUpdate(crc2, outbuf[2]);
-				*(uint16_t*)(outbuf + sizeof(outbuf) - 2) = crc2;
+				comm_prepareInfoData();
 				
 				bufIdx = 0;
 			}
 			else if (cmd == CMD_STATUS && len == CMD_STATUS_LEN)
 			{
-				uint16_t crc2;
-				outbuf[0] = state;
-				outbuf[1] = (validCPS >> 0) & 0xff;
-				outbuf[2] = (validCPS >> 8) & 0xff;
-				crc2 = crcUpdate(0, outbuf[0]);
-				crc2 = crcUpdate(crc2, outbuf[1]);
-				crc2 = crcUpdate(crc2, outbuf[2]);
-				*(uint16_t*)(outbuf + sizeof(outbuf) - 2) = crc2;
+				comm_prepareInfoData();
 				
 				bufIdx = 0;
 			}
@@ -131,6 +113,49 @@ void comm_processInput()
 	{
 		bufIdx = 0;
 	}
+}
+void comm_findID()
+{
+	IO_INPUT_PP(ID0);
+	IO_PUSH_PULL(ID1);
+	IO_LOW(ID1);
+	IO_INPUT_PP(ID2);
+	
+	if (IO_IS_HIGH(ID0) && IO_IS_HIGH(ID2))
+	{
+		deviceID = 0;
+	}
+	else if (IO_IS_HIGH(ID0))
+	{
+		deviceID = 1;
+	}
+	else if (IO_IS_HIGH(ID2))
+	{
+		deviceID = 2;
+	}
+	else
+	{
+		deviceID = 3;
+	}
+	deviceIDMask = 1 << deviceID;
+	
+	IO_INPUT(ID0);
+	IO_INPUT(ID1);
+	IO_INPUT(ID2);
+	IO_LOW(ID0);
+	IO_LOW(ID1);
+	IO_LOW(ID2);
+}
+void comm_prepareInfoData()
+{
+	uint16_t crc;
+	outbuf[0] = state;
+	outbuf[1] = (validCPS >> 0) & 0xff;
+	outbuf[2] = (validCPS >> 8) & 0xff;
+	crc = crcUpdate(0, outbuf[0]);
+	crc = crcUpdate(crc, outbuf[1]);
+	crc = crcUpdate(crc, outbuf[2]);
+	*(uint16_t*)(outbuf + sizeof(outbuf) - 2) = crc;
 }
 
 ISR(TWI_vect)
@@ -199,37 +224,4 @@ ISR(TWI_vect)
 		TWCR = TWOPT | _BV(TWINT) | _BV(TWEA);
 		break;
 	}
-}
-
-void comm_findID()
-{
-	IO_INPUT_PP(ID0);
-	IO_PUSH_PULL(ID1);
-	IO_LOW(ID1);
-	IO_INPUT_PP(ID2);
-	
-	if (IO_IS_HIGH(ID0) && IO_IS_HIGH(ID2))
-	{
-		deviceID = 0;
-	}
-	else if (IO_IS_HIGH(ID0))
-	{
-		deviceID = 1;
-	}
-	else if (IO_IS_HIGH(ID2))
-	{
-		deviceID = 2;
-	}
-	else
-	{
-		deviceID = 3;
-	}
-	deviceIDMask = 1 << deviceID;
-	
-	IO_INPUT(ID0);
-	IO_INPUT(ID1);
-	IO_INPUT(ID2);
-	IO_LOW(ID0);
-	IO_LOW(ID1);
-	IO_LOW(ID2);
 }

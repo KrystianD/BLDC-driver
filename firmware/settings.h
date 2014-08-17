@@ -5,4 +5,6 @@
 #define STARTUP_DUTY 50
 #define STARTUP_DUTY_MAX 150
 
+#define TWI_BASE_ADDRESS 0x20
+
 #endif
