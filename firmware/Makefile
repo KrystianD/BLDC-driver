@@ -13,12 +13,14 @@ CFLAGS+=$(DEFINES)
 CFLAGS+=$(INCLUDEPATH)
 LFLAGS=-Wl,--relax,--gc-sections -Wl,-gc-sections -Wl,-Map=build/main.map
 
-all: build/main.elf
-	mkdir -p build/
+all: prepare build/main.elf
 	avr-objcopy -O binary build/main.elf build/main.bin
 	avr-objcopy -O ihex build/main.elf build/main.hex
 	avr-objdump -h -S build/main.elf > build/main.lst
 	avr-size build/main.elf
+
+prepare:
+	mkdir -p build/
 
 build/main.o: main.c
 	$(CC) $(CFLAGS) -c $< -o $@
@@ -26,7 +28,7 @@ build/main.o: main.c
 build/comm.o: comm.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
-build/bldc.o: bldc.c
+build/bldc.o: bldc.c speeds.h
 	$(CC) $(CFLAGS) -c $< -o $@
 
 build/debug.o: debug.c
@@ -38,3 +40,7 @@ build/__crc16.o: ../crc16.c
 build/main.elf: build/main.o build/comm.o build/bldc.o build/debug.o build/__crc16.o
 	$(CC) $(CFLAGS) $(LFLAGS) $^ -lm -lc -o $@
 
+speeds.h: gen_speeds.py
+	python gen_speeds.py > speeds.h
+
+.PHONY: prepare
