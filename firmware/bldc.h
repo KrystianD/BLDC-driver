@@ -13,7 +13,7 @@
 
 // inverted
 #define ACSR_RISING  (_BV(ACIS1))
-#define ACSR_FAILING (_BV(ACIS1) | _BV(ACIS0))
+#define ACSR_FALLING (_BV(ACIS1) | _BV(ACIS0))
 
 #define TCCR1A_BASE (_BV(WGM10))
 #define TCCR1B_BASE (_BV(WGM12) | _BV(CS10))
